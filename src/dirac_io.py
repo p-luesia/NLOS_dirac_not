@@ -31,6 +31,6 @@ def read_observations(data_file: str):
     # Data in a 3d matrix of observations
     planar_H = data.H.reshape((kt.shape[0], ks.shape[0], kl.shape[0]))
     # Reshape to match the coordinates
-    T = np.moveaxis(planar_H, 0,-1)
+    T = np.moveaxis(planar_H, 0, -1)
     # Return the data
     return (T, ks, kl, offset_ks, offset_kl, kt)

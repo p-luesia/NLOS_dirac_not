@@ -5,9 +5,10 @@ File        : dirac_types.py
 Description : Definition and implementation of Dirac notation datatypes
 """
 
+from typing import Any
+
 import numpy as np
 from numpy.typing import NDArray
-from typing import Any
 
 
 def dagger(vector_states):
@@ -24,11 +25,11 @@ def fftn_but_first(data, o_shape):
                               lower, it trim the input
     @return (f_data, axes)  : f_data is the data in the fourier domain but the
                               first axes, and axes are the axes to transform
-    """      
+    """
     assert o_shape.shape[0] == data.ndim-1,\
         "The output shape does not mach with the dimensions of the data"
     axes = np.arange(1, data.ndim)
-    f_data = np.fft.fftn(data, s = o_shape, axes = axes)
+    f_data = np.fft.fftn(data, s=o_shape, axes=axes)
     return (f_data, axes)
 
 
@@ -78,7 +79,7 @@ class Ket(np.ndarray):
         shape_bra = np.array(bra.shape)
         shape_ket = np.array(self.shape)
         assert np.all(shape_bra[1:] == shape_ket[1:]),\
-                "Bra and Ket shapes do not match"
+            "Bra and Ket shapes do not match"
 
         # Data to Fourier domain
         o_shape = shape_bra[1:]*2 - 1
@@ -90,7 +91,7 @@ class Ket(np.ndarray):
 
         # The output expected shape
         o_shape = tuple(shape_bra[1:])
-        return np.fft.ifftn(f_o, s=o_shape, axes = axes+1).view(np.ndarray)#.copy()
+        return np.fft.ifftn(f_o, s=o_shape, axes=axes+1).view(np.ndarray)
 
     def __str__(self):
         """
@@ -107,12 +108,6 @@ class Ket(np.ndarray):
         Outer product override
         """
         return self.outer(bra)
-
-    # def __rmul__(self, term):
-    #     """
-    #     Multiply operator override
-    #     """
-    #     return np.matmul(term, self)
 
 
 class Bra(np.ndarray):
@@ -165,7 +160,7 @@ class Bra(np.ndarray):
         f_ket, _ = fftn_but_first(ket)
 
         # Inner product with convolutions in Fourier
-        f_o = np.sum(f_ket * f_bra, axis = 0)
+        f_o = np.sum(f_ket * f_bra, axis=0)
 
         # The output expected shape
         return np.fft.ifftn(f_o)
@@ -188,4 +183,3 @@ class Bra(np.ndarray):
             return self.inner(term)
         else:
             return np.inner(self, term)
-
