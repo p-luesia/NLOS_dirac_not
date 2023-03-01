@@ -12,7 +12,7 @@ from numpy.typing import NDArray
 
 
 def dagger(vector_states):
-    return np.conjugate(vector_states)
+    return np.conjugate(vector_states.swapaxes(-1,-2))
 
 
 def fftn_but_first(data, o_shape):
@@ -38,18 +38,25 @@ class Ket(np.ndarray):
     The representation of a quantum system |a>
     """
 
-    def __new__(cls, *args, label: str = None):
+    def __new__(cls, *args, ket_format = False, label: str = None):
         """
         Constructor of a ket.
-        @param args     : Bra or a list of numbers
-        @param label    : Label for printing the ket
+        @param args         : Bra, a list of elements or a numpy.ndarray.
+                              If a numpy.ndarray, it will move axes to set it
+                              in the ket format
+        @param ket_format   : If true, it assumes the data is already in the
+                              ket format
+        @param label        : Label for printing the ket
         """
         if len(args) == 1 and isinstance(args[0], Bra):
             obj = dagger(args[0]).view(Ket)
         elif len(args) == 1 and isinstance(args[0], np.ndarray):
             obj = args[0].view(cls)
+            if not ket_format:
+                obj = np.moveaxis(obj, 0, -1)[..., np.newaxis]
         else:
-            obj = np.asarray([*args]).view(cls)
+            obj = np.moveaxis(np.asarray([*args]).view(cls), 
+                              0, -1)[..., np.newaxis]
 
         obj.label = label
         return obj
@@ -76,22 +83,7 @@ class Ket(np.ndarray):
         Return the outer product between a ket and a bra (ketbra)
         """
         assert isinstance(bra, Bra), "The second term is not a Bra"
-        shape_bra = np.array(bra.shape)
-        shape_ket = np.array(self.shape)
-        assert np.all(shape_bra[1:] == shape_ket[1:]),\
-            "Bra and Ket shapes do not match"
-
-        # Data to Fourier domain
-        o_shape = shape_bra[1:]*2 - 1
-        f_ket, axes = fftn_but_first(self, o_shape)
-        f_bra, _ = fftn_but_first(bra, o_shape)
-
-        # Outter product with convolutions in Fourier
-        f_o = f_ket[:, np.newaxis, ...] * f_bra[np.newaxis, ...]
-
-        # The output expected shape
-        o_shape = tuple(shape_bra[1:])
-        return np.fft.ifftn(f_o, s=o_shape, axes=axes+1).view(np.ndarray)
+        return np.matmul(self, bra).view(np.ndarray)
 
     def __str__(self):
         """
@@ -103,11 +95,15 @@ class Ket(np.ndarray):
             prefix = '|' + self.label + '> = '
         return prefix + str(self.view(np.ndarray))
 
-    def __mul__(self, bra):
+    def __mul__(self, term):
         """
-        Outer product override
+        Product override
         """
-        return self.outer(bra)
+        if isinstance(term, Bra):
+            # Outer product
+            return self.outer(term)
+        else:
+            return np.matmul(self.view(np.ndarray), term)
 
 
 class Bra(np.ndarray):
@@ -115,18 +111,25 @@ class Bra(np.ndarray):
     The dual representation of a ket <a|
     """
 
-    def __new__(cls, *args, label: str = None):
+    def __new__(cls, *args, bra_format = False, label: str = None):
         """
         Constructor of a ket.
-        @param args     : Bra or a list of numbers
-        @param label    : Label for printing the ket
+        @param args         : Ket, a list of elements or a numpy.ndarray.
+                              If a numpy.ndarray, it will move axes to set it
+                              in the bra format
+        @param bra_format   : If true, it assumes the data is already in the
+                              bra format
+        @param label        : Label for printing the ket
         """
         if len(args) == 1 and isinstance(args[0], Ket):
             obj = dagger(args[0]).view(Bra)
         elif len(args) == 1 and isinstance(args[0], np.ndarray):
             obj = args[0].view(cls)
+            if not bra_format:
+                obj = np.moveaxis(obj, 0, -1)[..., np.newaxis, :]
         else:
-            obj = np.asarray([*args]).view(cls)
+            obj = np.moveaxis(np.asarray([*args]).view(cls), 
+                                0, -1)[..., np.newaxis, :]
 
         obj.label = label
         return obj
@@ -152,18 +155,8 @@ class Bra(np.ndarray):
         """
         Return the outter product between a bra and a ket (braket)
         """
-        assert isinstance(ket, Ket), "The second term is not a Bra"
-        assert ket.shape == self.shape, "Bra and Ket shapes do not match"
-
-        # Data to Fourier domain
-        f_bra, axes = fftn_but_first(self)
-        f_ket, _ = fftn_but_first(ket)
-
         # Inner product with convolutions in Fourier
-        f_o = np.sum(f_ket * f_bra, axis=0)
-
-        # The output expected shape
-        return np.fft.ifftn(f_o)
+        return np.matmul(self, ket)[..., 0, 0].view(np.ndarray)
 
     def __str__(self):
         """
@@ -182,4 +175,4 @@ class Bra(np.ndarray):
         if isinstance(term, Ket):
             return self.inner(term)
         else:
-            return np.inner(self, term)
+            return np.matmul(self.view(np.ndarray), term) 
