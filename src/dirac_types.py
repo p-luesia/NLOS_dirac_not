@@ -156,7 +156,7 @@ class Bra(np.ndarray):
         Return the outter product between a bra and a ket (braket)
         """
         # Inner product with convolutions in Fourier
-        return np.matmul(self, ket)[..., 0, 0].view(np.ndarray)
+        return np.matmul(self, ket).view(np.ndarray)
 
     def __str__(self):
         """
